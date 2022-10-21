@@ -53,6 +53,7 @@ API_KEY=config.API_KEY
 API_HOST = 'https://api.yelp.com'
 SEARCH_PATH = '/v3/businesses/search'
 BUSINESS_PATH = '/v3/businesses/'  # Business ID will come after slash.
+REVIEW_PATH = '/v3/businesses/{id}/reviews' # replace the id with Business ID
 
 
 # Defaults for our simple example.
@@ -82,7 +83,7 @@ def request(host, path, api_key, url_params=None):
         'Authorization': 'Bearer %s' % api_key,
     }
 
-    print(u'Querying {0} ...'.format(url))
+    # print(u'Querying {0} ...'.format(url))
 
     response = requests.request('GET', url, headers=headers, params=url_params)
 
@@ -122,6 +123,20 @@ def get_business(api_key, business_id):
     return request(API_HOST, business_path, api_key)
 
 
+def get_reviews(api_key, business_id):
+    """Query the Reviews API by a business ID.
+
+    Args:
+        business_id (str): The ID of the business to query.
+
+    Returns:
+        dict: The JSON response from the request.
+    """
+    review_path = REVIEW_PATH.format(id=business_id)
+
+    return request(API_HOST, review_path, api_key)
+
+
 def query_api(term, location):
     """Queries the API by the input values from the user.
 
@@ -148,6 +163,43 @@ def query_api(term, location):
     pprint.pprint(response, indent=2)
 
 
+def query_reviews_api(term, location):
+    """Gets the reviews using the input values from the user.
+
+    Args:
+        term (str): The search term to query.
+        location (str): The location of the business to query.
+    """
+    response = search(API_KEY, term, location)
+
+    businesses = response.get('businesses')
+
+    if not businesses:
+        print(u'No businesses for {0} in {1} found.'.format(term, location))
+        return
+
+    # print(businesses[0])
+    # return
+    business_id = businesses[0]['id']
+    business_name = businesses[0]['name']
+    business_address = businesses[0]['location']['display_address']
+
+    print(u'{0} businesses found: \n'.format(len(businesses)))
+    for business in businesses:
+        print(business['name'], business['location']['display_address'])
+
+    print(u'\n\nQuerying reviews ' \
+        'for the top result "{0} located at {1}" ...'.format(
+            business_name, business_address))
+    response = get_reviews(API_KEY, business_id)
+
+    print(u'\nTop 3 reviews for business {0}:\n'.format(business_name))
+    #pprint.pprint(response, indent=2)
+    for review in response["reviews"]:
+        pprint.pprint(review["text"], indent=2)
+        print("\n")
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -160,7 +212,8 @@ def main():
     input_values = parser.parse_args()
 
     try:
-        query_api(input_values.term, input_values.location)
+        #query_api(input_values.term, input_values.location)
+        query_reviews_api(input_values.term, input_values.location)
     except HTTPError as error:
         sys.exit(
             'Encountered HTTP error {0} on {1}:\n {2}\nAbort program.'.format(
